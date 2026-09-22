@@ -10,19 +10,22 @@ import './App.css'
 type Tab = 'employees' | 'requests' | 'settings' | 'plan'
 
 const TABS: Array<{ id: Tab; label: string }> = [
+  { id: 'settings', label: 'Einstellungen' },
   { id: 'employees', label: 'Mitarbeiter' },
   { id: 'requests', label: 'Urlaubswünsche' },
-  { id: 'settings', label: 'Einstellungen' },
   { id: 'plan', label: 'Planung' },
 ]
 
 function AppShell() {
-  const [tab, setTab] = useState<Tab>('employees')
+  const [tab, setTab] = useState<Tab>('settings')
 
   return (
     <div className="app">
       <header className="app-header">
-        <h1>🏥 Team-Urlaubsplaner</h1>
+        <h1>
+          <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="app-logo" />
+          Team-Urlaubsplaner
+        </h1>
         <ImportExportBar />
       </header>
       <nav className="tabs">

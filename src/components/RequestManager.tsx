@@ -1,15 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { usePlanning } from '../store/PlanningContext'
 import type { Priority, VacationRequest } from '../types'
-import {
-  weekStartDate,
-  weekEndDate,
-  dateToWeekInYear,
-  formatDateInput,
-  parseDateInput,
-} from '../utils/isoWeek'
-import { employeeColor } from '../utils/colors'
+import { weekStartDate, weekEndDate, weeksInYear } from '../utils/isoWeek'
 
 const PRIORITY_LABEL: Record<Priority, string> = {
   fixed: 'Fixiert',
@@ -22,6 +15,42 @@ function formatDateShort(d: Date): string {
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`
 }
 
+/** Liste aller Kalenderwochen eines Jahres mit Anzeigetext (z. B. "KW 30 (20.07.–26.07.)"). */
+function useWeekOptions(year: number) {
+  return useMemo(() => {
+    const total = weeksInYear(year)
+    return Array.from({ length: total }, (_, i) => {
+      const week = i + 1
+      const start = formatDateShort(weekStartDate(year, week))
+      const end = formatDateShort(weekEndDate(year, week))
+      return { week, label: `KW ${week} (${start}–${end})` }
+    })
+  }, [year])
+}
+
+function WeekSelect({
+  year,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  year: number
+  value: number
+  onChange: (week: number) => void
+  ariaLabel: string
+}) {
+  const options = useWeekOptions(year)
+  return (
+    <select aria-label={ariaLabel} value={value} onChange={(e) => onChange(Number(e.target.value))}>
+      {options.map((o) => (
+        <option key={o.week} value={o.week}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  )
+}
+
 export default function RequestManager() {
   const { data, addRequest, updateRequest, deleteRequest } = usePlanning()
   const [employeeId, setEmployeeId] = useState('')
@@ -31,19 +60,12 @@ export default function RequestManager() {
 
   const employeeById = new Map(data.employees.map((e) => [e.id, e]))
 
-  const minDate = formatDateInput(new Date(data.year, 0, 1))
-  const maxDate = formatDateInput(new Date(data.year, 11, 31))
-
-  const handleStartDateChange = (value: string) => {
-    if (!value) return
-    const week = dateToWeekInYear(parseDateInput(value), data.year)
+  const handleStartWeekChange = (week: number) => {
     setStartWeek(week)
     setEndWeek((prev) => Math.max(prev, week))
   }
 
-  const handleEndDateChange = (value: string) => {
-    if (!value) return
-    const week = dateToWeekInYear(parseDateInput(value), data.year)
+  const handleEndWeekChange = (week: number) => {
     setEndWeek(Math.max(week, startWeek))
   }
 
@@ -82,23 +104,21 @@ export default function RequestManager() {
           </select>
         </label>
         <label>
-          Von
-          <input
-            type="date"
-            min={minDate}
-            max={maxDate}
-            value={formatDateInput(weekStartDate(data.year, startWeek))}
-            onChange={(e) => handleStartDateChange(e.target.value)}
+          Von Kalenderwoche
+          <WeekSelect
+            year={data.year}
+            value={startWeek}
+            onChange={handleStartWeekChange}
+            ariaLabel="Von Kalenderwoche"
           />
         </label>
         <label>
-          Bis
-          <input
-            type="date"
-            min={minDate}
-            max={maxDate}
-            value={formatDateInput(weekEndDate(data.year, endWeek))}
-            onChange={(e) => handleEndDateChange(e.target.value)}
+          Bis Kalenderwoche
+          <WeekSelect
+            year={data.year}
+            value={endWeek}
+            onChange={handleEndWeekChange}
+            ariaLabel="Bis Kalenderwoche"
           />
         </label>
         <label>
@@ -109,10 +129,6 @@ export default function RequestManager() {
             <option value="fixed">Fixiert</option>
           </select>
         </label>
-        <span className="hint">
-          KW {startWeek}
-          {endWeek !== startWeek ? `–${endWeek}` : ''}
-        </span>
         <button type="submit" disabled={data.employees.length === 0}>
           Hinzufügen
         </button>
@@ -150,15 +166,6 @@ export default function RequestManager() {
           )}
         </tbody>
       </table>
-
-      <div className="legend">
-        {data.employees.map((emp) => (
-          <span key={emp.id} className="legend-item">
-            <span className="legend-swatch" style={{ background: employeeColor(emp.id) }} />
-            {emp.name}
-          </span>
-        ))}
-      </div>
     </section>
   )
 }
@@ -180,52 +187,41 @@ function RequestRow({
   const [endWeek, setEndWeek] = useState(request.endWeek)
   const [priority, setPriority] = useState<Priority>(request.priority)
 
-  const minDate = formatDateInput(new Date(year, 0, 1))
-  const maxDate = formatDateInput(new Date(year, 11, 31))
-
   const commit = (patch: Partial<VacationRequest>) => {
     onSave({ ...request, startWeek, endWeek, priority, ...patch })
   }
 
-  const handleStartDateChange = (value: string) => {
-    if (!value) return
-    const week = dateToWeekInYear(parseDateInput(value), year)
+  const handleStartWeekChange = (week: number) => {
     const nextEnd = Math.max(endWeek, week)
     setStartWeek(week)
     setEndWeek(nextEnd)
     commit({ startWeek: week, endWeek: nextEnd })
   }
 
-  const handleEndDateChange = (value: string) => {
-    if (!value) return
-    const week = Math.max(dateToWeekInYear(parseDateInput(value), year), startWeek)
-    setEndWeek(week)
-    commit({ endWeek: week })
+  const handleEndWeekChange = (week: number) => {
+    const nextEnd = Math.max(week, startWeek)
+    setEndWeek(nextEnd)
+    commit({ endWeek: nextEnd })
   }
 
   return (
     <tr>
       <td>{employeeName}</td>
       <td>
-        <input
-          type="date"
-          min={minDate}
-          max={maxDate}
-          value={formatDateInput(weekStartDate(year, startWeek))}
-          onChange={(e) => handleStartDateChange(e.target.value)}
-        />
-        {' – '}
-        <input
-          type="date"
-          min={minDate}
-          max={maxDate}
-          value={formatDateInput(weekEndDate(year, endWeek))}
-          onChange={(e) => handleEndDateChange(e.target.value)}
-        />
-        <div className="hint">
-          KW {startWeek}
-          {endWeek !== startWeek ? `–${endWeek}` : ''} ({formatDateShort(weekStartDate(year, startWeek))}–
-          {formatDateShort(weekEndDate(year, endWeek))})
+        <div className="week-range-select">
+          <WeekSelect
+            year={year}
+            value={startWeek}
+            onChange={handleStartWeekChange}
+            ariaLabel="Von Kalenderwoche"
+          />
+          <span> – </span>
+          <WeekSelect
+            year={year}
+            value={endWeek}
+            onChange={handleEndWeekChange}
+            ariaLabel="Bis Kalenderwoche"
+          />
         </div>
       </td>
       <td>
@@ -250,3 +246,4 @@ function RequestRow({
     </tr>
   )
 }
+

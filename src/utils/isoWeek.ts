@@ -4,8 +4,6 @@ import {
   startOfISOWeek,
   endOfISOWeek,
   setISOWeekYear,
-  getISOWeek,
-  getISOWeekYear,
 } from 'date-fns'
 
 /** Anzahl der ISO-Kalenderwochen eines Jahres (52 oder 53). */
@@ -43,31 +41,4 @@ export function weekRangeDateLabel(year: number, startWeek: number, endWeek: num
 export function clampWeek(week: number, year: number): number {
   const max = weeksInYear(year)
   return Math.min(Math.max(week, 1), max)
-}
-
-/**
- * Ermittelt zu einem beliebigen Datum die zugehörige ISO-Kalenderwoche innerhalb
- * des angegebenen Planungsjahres. Liegt das Datum ISO-technisch bereits im
- * Vorjahr bzw. Folgejahr (Jahreswechsel-Randtage), wird auf die erste bzw.
- * letzte Woche des Planungsjahres begrenzt.
- */
-export function dateToWeekInYear(date: Date, year: number): number {
-  const isoYear = getISOWeekYear(date)
-  if (isoYear < year) return 1
-  if (isoYear > year) return weeksInYear(year)
-  return getISOWeek(date)
-}
-
-/** Formatiert ein Datum als `yyyy-MM-dd` für `<input type="date">`. */
-export function formatDateInput(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-/** Parst den Wert eines `<input type="date">` (`yyyy-MM-dd`) als lokales Datum. */
-export function parseDateInput(value: string): Date {
-  const [y, m, d] = value.split('-').map(Number)
-  return new Date(y, (m ?? 1) - 1, d ?? 1)
 }
