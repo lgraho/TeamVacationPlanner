@@ -59,5 +59,16 @@ npm run lint     # Linting (oxlint)
 ## Deployment
 
 Da die App vollständig clientseitig läuft, genügt für das Hosting ein einfacher
-statischer Webserver: `npm run build` erzeugt einen `dist/`-Ordner, der z. B. via
-GitHub Pages, Netlify, ein internes Intranet-Verzeichnis o. Ä. bereitgestellt werden kann.
+statischer Webserver. Die App ist per **GitHub Pages** live verfügbar unter:
+
+**https://lgraho.github.io/TeamVacationPlanner/**
+
+Bei jedem Push auf `main` baut ein GitHub-Actions-Workflow
+([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)) die App automatisch
+neu und veröffentlicht sie. Damit die Pfade zu den Assets stimmen, ist in
+[`vite.config.ts`](vite.config.ts) `base: '/TeamVacationPlanner/'` gesetzt (Name des
+Repositories).
+
+Alternativ genügt für andere Hosting-Optionen ein `npm run build`, das einen
+`dist/`-Ordner erzeugt, der z. B. via Netlify oder einem internen
+Intranet-Verzeichnis bereitgestellt werden kann.
