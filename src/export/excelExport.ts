@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs'
 import type { Employee, PlanningData, PlanningResult } from '../types'
-import { weekDateRangeLabel } from '../utils/isoWeek'
+import { planningPeriodLabel, planningWeekCodeRange, planningWeekLabel } from '../utils/isoWeek'
 import { employeeColorHex } from '../utils/colors'
 import { STATUS_LABEL } from '../utils/statusLabels'
 
@@ -39,22 +39,22 @@ export async function exportPlanToExcel(data: PlanningData, result: PlanningResu
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   })
-  triggerDownload(blob, `urlaubsplan-${data.year}.xlsx`)
+  triggerDownload(blob, `urlaubsplan-${data.startYear}-${String(data.startMonth).padStart(2, '0')}.xlsx`)
 }
 
 function addGridSheet(workbook: ExcelJS.Workbook, data: PlanningData, result: PlanningResult): void {
   const sheet = workbook.addWorksheet('Wochenraster')
-  const weekNumbers = Array.from({ length: result.weeksInYear }, (_, i) => i + 1)
+  const weeks = result.weeks
 
   sheet.columns = [
     { header: 'Mitarbeiter', width: 22 },
-    ...weekNumbers.map((w) => ({ header: `KW ${w}`, width: 6 })),
+    ...weeks.map((week) => ({ header: `KW ${week.isoWeek}/${week.isoYear}`, width: 10 })),
   ]
   sheet.getRow(1).font = { bold: true }
   sheet.views = [{ state: 'frozen', xSplit: 1, ySplit: 1 }]
 
   for (const emp of data.employees) {
-    const rowValues: (string | number)[] = [emp.name, ...weekNumbers.map(() => '')]
+    const rowValues: (string | number)[] = [emp.name, ...weeks.map(() => '')]
     const row = sheet.addRow(rowValues)
 
     const own = result.assignments.filter((a) => a.employeeId === emp.id && a.status !== 'unresolved')
@@ -66,8 +66,8 @@ function addGridSheet(workbook: ExcelJS.Workbook, data: PlanningData, result: Pl
     }
 
     const colorHex = employeeColorHex(emp.id)
-    weekNumbers.forEach((w, idx) => {
-      const status = weekStatus.get(w)
+    weeks.forEach((week, idx) => {
+      const status = weekStatus.get(week.index)
       if (!status) return
       const cell = row.getCell(idx + 2)
       cell.fill = {
@@ -80,10 +80,11 @@ function addGridSheet(workbook: ExcelJS.Workbook, data: PlanningData, result: Pl
   }
 
   // Kalenderwochen-Datumsbereiche als Kommentar in der Kopfzeile ergänzen.
-  weekNumbers.forEach((w, idx) => {
+  weeks.forEach((week, idx) => {
     const cell = sheet.getRow(1).getCell(idx + 2)
-    cell.note = weekDateRangeLabel(data.year, w)
+    cell.note = planningWeekLabel(week)
   })
+  sheet.name = `Wochenraster ${planningPeriodLabel(data.startYear, data.startMonth)}`.slice(0, 31)
 }
 
 function addDetailsSheet(
@@ -108,16 +109,11 @@ function addDetailsSheet(
     sheet.addRow({
       employee: employeeById.get(a.employeeId)?.name ?? '(gelöscht)',
       priority: PRIORITY_LABEL[a.priority] ?? a.priority,
-      requested:
-        a.originalStartWeek === a.originalEndWeek
-          ? `${a.originalStartWeek}`
-          : `${a.originalStartWeek}–${a.originalEndWeek}`,
+      requested: planningWeekCodeRange(result.weeks, a.originalStartWeek, a.originalEndWeek),
       assigned:
         a.status === 'unresolved'
           ? '–'
-          : a.startWeek === a.endWeek
-            ? `${a.startWeek}`
-            : `${a.startWeek}–${a.endWeek}`,
+          : planningWeekCodeRange(result.weeks, a.startWeek, a.endWeek),
       shift: a.status === 'alternative' ? a.shiftWeeks : '',
       status: STATUS_LABEL[a.status],
       reason: a.reason ?? '',

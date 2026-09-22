@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable'
 import type { Employee, PlanningData, PlanningResult } from '../types'
 import { employeeColorHex } from '../utils/colors'
 import { STATUS_LABEL } from '../utils/statusLabels'
+import { planningPeriodLabel, planningWeekCodeRange } from '../utils/isoWeek'
 
 const PRIORITY_LABEL: Record<string, string> = {
   fixed: 'Fixiert',
@@ -21,7 +22,7 @@ export function exportPlanToPdf(data: PlanningData, result: PlanningResult): voi
   const employeeById = new Map<string, Employee>(data.employees.map((e) => [e.id, e]))
 
   doc.setFontSize(16)
-  doc.text(`Urlaubsplan ${data.year}`, 40, 40)
+  doc.text(`Urlaubsplan ${planningPeriodLabel(data.startYear, data.startMonth)}`, 40, 40)
   doc.setFontSize(9)
   doc.setTextColor(120)
   doc.text(`Erstellt am ${new Date().toLocaleDateString('de-DE')}`, 40, 56)
@@ -52,7 +53,7 @@ export function exportPlanToPdf(data: PlanningData, result: PlanningResult): voi
   }
 
   // Wochenraster
-  const weekNumbers = Array.from({ length: result.weeksInYear }, (_, i) => i + 1)
+  const weeks = result.weeks
   const gridBody = data.employees.map((emp) => {
     const own = result.assignments.filter((a) => a.employeeId === emp.id && a.status !== 'unresolved')
     const weekStatus = new Map<number, 'as-requested' | 'alternative'>()
@@ -61,12 +62,12 @@ export function exportPlanToPdf(data: PlanningData, result: PlanningResult): voi
         weekStatus.set(w, a.status as 'as-requested' | 'alternative')
       }
     }
-    return [emp.name, ...weekNumbers.map((w) => weekStatus.get(w) ?? '')]
+    return [emp.name, ...weeks.map((week) => weekStatus.get(week.index) ?? '')]
   })
 
   autoTable(doc, {
     startY: cursorY,
-    head: [['Mitarbeiter', ...weekNumbers.map(String)]],
+    head: [['Mitarbeiter', ...weeks.map((week) => `${week.isoWeek}/${String(week.isoYear).slice(-2)}`)]],
     body: gridBody,
     styles: { fontSize: 6, cellPadding: 1, halign: 'center', minCellHeight: 14 },
     columnStyles: { 0: { cellWidth: 90, halign: 'left', fontStyle: 'bold' } },
@@ -97,14 +98,10 @@ export function exportPlanToPdf(data: PlanningData, result: PlanningResult): voi
     body: sorted.map((a) => [
       employeeById.get(a.employeeId)?.name ?? '(gelöscht)',
       PRIORITY_LABEL[a.priority] ?? a.priority,
-      a.originalStartWeek === a.originalEndWeek
-        ? `${a.originalStartWeek}`
-        : `${a.originalStartWeek}–${a.originalEndWeek}`,
+      planningWeekCodeRange(result.weeks, a.originalStartWeek, a.originalEndWeek),
       a.status === 'unresolved'
         ? '–'
-        : a.startWeek === a.endWeek
-          ? `${a.startWeek}`
-          : `${a.startWeek}–${a.endWeek}`,
+        : planningWeekCodeRange(result.weeks, a.startWeek, a.endWeek),
       a.status === 'alternative' ? `${a.shiftWeeks > 0 ? '+' : ''}${a.shiftWeeks} Wo.` : '',
       STATUS_LABEL[a.status],
     ]),
@@ -113,5 +110,5 @@ export function exportPlanToPdf(data: PlanningData, result: PlanningResult): voi
     margin: { left: 40, right: 40 },
   })
 
-  doc.save(`urlaubsplan-${data.year}.pdf`)
+  doc.save(`urlaubsplan-${data.startYear}-${String(data.startMonth).padStart(2, '0')}.pdf`)
 }

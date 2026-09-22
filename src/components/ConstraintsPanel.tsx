@@ -1,23 +1,66 @@
 import { usePlanning } from '../store/PlanningContext'
-import { weeksInYear } from '../utils/isoWeek'
+import { planningPeriodLabel, planningWeeks } from '../utils/isoWeek'
+
+const MONTH_NAMES = [
+  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
+]
 
 export default function ConstraintsPanel() {
-  const { data, updateConstraints, setYear } = usePlanning()
+  const { data, updateConstraints, setPlanningPeriod } = usePlanning()
   const { constraints } = data
+  const weeks = planningWeeks(data.startYear, data.startMonth)
+
+  const changePeriod = (startYear: number, startMonth: number) => {
+    if (!Number.isInteger(startYear) || startYear < 2000 || startYear > 2100) return false
+    if (startYear === data.startYear && startMonth === data.startMonth) return true
+    if (
+      data.requests.length > 0 &&
+      !confirm(
+        'Der Planungszeitraum wird geändert. Urlaubswünsche außerhalb des neuen Zeitraums werden entfernt. Fortfahren?',
+      )
+    ) {
+      return false
+    }
+    setPlanningPeriod(startYear, startMonth)
+    return true
+  }
 
   return (
     <section className="panel">
       <h2>Einstellungen</h2>
       <div className="inline-form">
         <label>
-          Planungsjahr
+          Startjahr
           <input
+            key={data.startYear}
             type="number"
-            value={data.year}
-            onChange={(e) => setYear(Number(e.target.value))}
+            min={2000}
+            max={2100}
+            defaultValue={data.startYear}
+            onBlur={(e) => {
+              if (!changePeriod(Number(e.target.value), data.startMonth)) {
+                e.currentTarget.value = String(data.startYear)
+              }
+            }}
           />
         </label>
-        <span className="hint">{weeksInYear(data.year)} Kalenderwochen</span>
+        <label>
+          Startmonat
+          <select
+            value={data.startMonth}
+            onChange={(e) => changePeriod(data.startYear, Number(e.target.value))}
+          >
+            {MONTH_NAMES.map((month, index) => (
+              <option key={month} value={index + 1}>
+                {month}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="hint">
+          {planningPeriodLabel(data.startYear, data.startMonth)} · {weeks.length} Kalenderwochen
+        </span>
       </div>
 
       <div className="inline-form">

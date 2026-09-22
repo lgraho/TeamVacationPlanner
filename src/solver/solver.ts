@@ -4,11 +4,12 @@ import type {
   Constraints,
   Employee,
   PlanningResult,
+  PlanningWeek,
   PlanningWarning,
   Priority,
   VacationRequest,
 } from '../types'
-import { weeksInYear } from '../utils/isoWeek'
+import { planningWeekLabel } from '../utils/isoWeek'
 
 const PRIORITY_WEIGHT: Record<Priority, number> = {
   fixed: 1_000_000,
@@ -30,10 +31,12 @@ class SolverState {
   readonly weeksTotal: number
   readonly employeeStates = new Map<string, EmployeeState>()
   readonly weekCounts: number[]
+  readonly weeks: PlanningWeek[]
 
-  constructor(weeksTotal: number, employees: Employee[]) {
-    this.weeksTotal = weeksTotal
-    this.weekCounts = new Array(weeksTotal + 1).fill(0)
+  constructor(weeks: PlanningWeek[], employees: Employee[]) {
+    this.weeks = weeks
+    this.weeksTotal = weeks.length
+    this.weekCounts = new Array(weeks.length + 1).fill(0)
     for (const e of employees) {
       this.employeeStates.set(e.id, { weeks: new Set(), blocks: [] })
     }
@@ -85,7 +88,7 @@ class SolverState {
     for (let w = start; w <= end; w++) {
       if (this.weekCounts[w] + 1 > constraints.maxConcurrentEmployees) {
         violations.push(
-          `Max. Anzahl gleichzeitig abwesender Mitarbeiter (${constraints.maxConcurrentEmployees}) in KW ${w} würde überschritten`,
+          `Max. Anzahl gleichzeitig abwesender Mitarbeiter (${constraints.maxConcurrentEmployees}) in ${planningWeekLabel(this.weeks[w - 1], false)} würde überschritten`,
         )
         break
       }
@@ -110,7 +113,7 @@ class SolverState {
   }
 
   clone(): SolverState {
-    const copy = new SolverState(this.weeksTotal, [])
+    const copy = new SolverState(this.weeks, [])
     for (const [id, st] of this.employeeStates) {
       copy.employeeStates.set(id, { weeks: new Set(st.weeks), blocks: st.blocks.map((b) => [...b] as [number, number]) })
     }
@@ -195,15 +198,15 @@ function scoreAssignment(a: AssignedVacation, weeksTotal: number): number {
 }
 
 function runSingleStrategy(
-  year: number,
+  weeks: PlanningWeek[],
   employees: Employee[],
   requests: VacationRequest[],
   constraints: Constraints,
   order: OrderStrategy,
 ): PlanningResult {
-  const weeksTotal = weeksInYear(year)
+  const weeksTotal = weeks.length
   const employeeById = new Map(employees.map((e) => [e.id, e]))
-  const state = new SolverState(weeksTotal, employees)
+  const state = new SolverState(weeks, employees)
   const warnings: PlanningWarning[] = []
   const assignments: AssignedVacation[] = []
 
@@ -223,7 +226,7 @@ function runSingleStrategy(
     if (violations.length > 0) {
       for (const v of violations) {
         warnings.push({
-          message: `Fixierter Urlaub von ${employee.name} (KW ${req.startWeek}-${req.endWeek}): ${v}`,
+          message: `Fixierter Urlaub von ${employee.name} (${formatWeekRange(weeks, req.startWeek, req.endWeek)}): ${v}`,
           employeeId: employee.id,
           requestId: req.id,
         })
@@ -281,7 +284,7 @@ function runSingleStrategy(
       const violations = state.checkViolations(employee, req.startWeek, req.endWeek, constraints)
       reason = violations.join('; ')
       warnings.push({
-        message: `Urlaubswunsch von ${employee.name} (KW ${req.startWeek}-${req.endWeek}, ${req.priority}) konnte nicht erfüllt werden: ${reason}`,
+        message: `Urlaubswunsch von ${employee.name} (${formatWeekRange(weeks, req.startWeek, req.endWeek)}, ${req.priority}) konnte nicht erfüllt werden: ${reason}`,
         employeeId: employee.id,
         requestId: req.id,
       })
@@ -303,7 +306,16 @@ function runSingleStrategy(
 
   const score = assignments.reduce((sum, a) => sum + scoreAssignment(a, weeksTotal), 0)
 
-  return { year, weeksInYear: weeksTotal, assignments, warnings, score }
+  return { weeks, assignments, warnings, score }
+}
+
+function formatWeekRange(weeks: PlanningWeek[], start: number, end: number): string {
+  const first = weeks[start - 1]
+  const last = weeks[end - 1]
+  if (!first || !last) return `Planwoche ${start}–${end}`
+  const firstLabel = `KW ${first.isoWeek}/${first.isoYear}`
+  const lastLabel = `KW ${last.isoWeek}/${last.isoYear}`
+  return start === end ? firstLabel : `${firstLabel}–${lastLabel}`
 }
 
 /**
@@ -312,14 +324,14 @@ function runSingleStrategy(
  * möglichst geringe Verschiebung, möglichst wenige unerfüllte Wünsche).
  */
 export function solvePlanning(
-  year: number,
+  weeks: PlanningWeek[],
   employees: Employee[],
   requests: VacationRequest[],
   constraints: Constraints,
 ): PlanningResult {
   let best: PlanningResult | null = null
   for (const order of ORDER_STRATEGIES) {
-    const result = runSingleStrategy(year, employees, requests, constraints, order)
+    const result = runSingleStrategy(weeks, employees, requests, constraints, order)
     if (
       !best ||
       result.score > best.score ||

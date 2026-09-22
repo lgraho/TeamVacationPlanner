@@ -1,4 +1,4 @@
-# 🏥 Team-Urlaubsplaner
+# 📅 Team-Urlaubsplaner
 
 Ein clientseitiges Tool für Stationsleitungen, um Urlaubswünsche des Personals unter
 Berücksichtigung betrieblicher Einschränkungen zu planen. Die gesamte Berechnung läuft
@@ -6,18 +6,20 @@ im Browser – es wird kein Backend benötigt, alle Daten bleiben lokal (`localS
 
 ## Funktionen
 
-- **Mitarbeiterverwaltung** inkl. individuellem Urlaubswochen-Kontingent pro Jahr.
+- **Flexibler Planungszeitraum**: Startjahr und Startmonat sind einstellbar; geplant
+  werden immer zwölf Monate (standardmäßig Februar bis Januar des Folgejahres).
+- **Mitarbeiterverwaltung** inkl. individuellem Urlaubswochen-Kontingent pro Zeitraum.
 - **Urlaubswünsche** wochenweise (Kalenderwochen, ISO), als zusammenhängender Block mit
   drei Prioritätsstufen: *Normal*, *Hoch*, *Fixiert* (bereits verbindlich zugesagt).
 - **Einstellbare Constraints**:
   - Max. Anzahl Mitarbeiter gleichzeitig im Urlaub (Standard: 2)
   - Max. durchgängige Urlaubsdauer in Wochen (Standard: 2)
-  - Individuelles Jahres-Wochenkontingent je Mitarbeiter
+  - Individuelles Wochenkontingent je Mitarbeiter und Planungszeitraum
 - **Automatische Planung**: Der Solver versucht, alle Wünsche in Prioritätsreihenfolge
   exakt zu platzieren. Fixierte Wünsche werden immer übernommen (Konflikte werden als
   Warnung angezeigt). Kann ein Hoch/Normal-Wunsch nicht wie gewünscht platziert werden,
   sucht der Algorithmus automatisch die zeitlich nächstgelegene Alternative im selben
-  Jahr; ist keine Alternative möglich, wird der Wunsch als „nicht erfüllbar“ markiert
+  Planungszeitraum; ist keine Alternative möglich, wird der Wunsch als „nicht erfüllbar“ markiert
   und begründet.
 - **Visualisierung**: Kalenderwochen-Raster je Mitarbeiter sowie eine Detailtabelle mit
   Status je Wunsch (wie gewünscht / Alternative inkl. Verschiebung / nicht erfüllbar).

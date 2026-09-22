@@ -2,7 +2,12 @@ import { useMemo, useState } from 'react'
 import { usePlanning } from '../store/PlanningContext'
 import { solvePlanning } from '../solver/solver'
 import type { PlanningResult } from '../types'
-import { weeksInYear, weekDateRangeLabel, weekStartDate, weekRangeDateLabel } from '../utils/isoWeek'
+import {
+  planningPeriodLabel,
+  planningWeekLabel,
+  planningWeekRangeLabel,
+  planningWeeks,
+} from '../utils/isoWeek'
 import { employeeColor } from '../utils/colors'
 import { STATUS_LABEL } from '../utils/statusLabels'
 
@@ -23,17 +28,30 @@ const MONTH_NAMES = [
 
 export default function PlanBoard() {
   const { data } = usePlanning()
-  const [result, setResult] = useState<PlanningResult | null>(null)
+  const [calculation, setCalculation] = useState<{
+    result: PlanningResult
+    source: typeof data
+  } | null>(null)
   const [isExportingExcel, setIsExportingExcel] = useState(false)
   const [isExportingPdf, setIsExportingPdf] = useState(false)
-  const weeksTotal = weeksInYear(data.year)
-  const weekNumbers = useMemo(() => Array.from({ length: weeksTotal }, (_, i) => i + 1), [weeksTotal])
+  const weeks = useMemo(
+    () => planningWeeks(data.startYear, data.startMonth),
+    [data.startYear, data.startMonth],
+  )
 
-  // Gruppiert die Wochen nach dem Monat ihres Wochenbeginns (Montag) für die Monatsüberschrift im Raster.
+  const result = calculation?.source === data ? calculation.result : null
+
+  // Randwochen werden dem gewählten Zeitraum zugeordnet, damit die Überschrift exakt zwölf Monate zeigt.
   const monthGroups = useMemo(() => {
     const groups: { label: string; span: number }[] = []
-    for (const w of weekNumbers) {
-      const label = MONTH_NAMES[weekStartDate(data.year, w).getMonth()]
+    for (const week of weeks) {
+      const monthDate =
+        week.index === 1
+          ? new Date(data.startYear, data.startMonth - 1, 1)
+          : week.index === weeks.length
+            ? new Date(data.startYear, data.startMonth + 10, 1)
+            : week.start
+      const label = `${MONTH_NAMES[monthDate.getMonth()]} ${monthDate.getFullYear()}`
       const last = groups[groups.length - 1]
       if (last && last.label === label) {
         last.span += 1
@@ -42,12 +60,15 @@ export default function PlanBoard() {
       }
     }
     return groups
-  }, [weekNumbers, data.year])
+  }, [weeks, data.startYear, data.startMonth])
 
   const canCalculate = data.employees.length > 0 && data.requests.length > 0
 
   const handleCalculate = () => {
-    setResult(solvePlanning(data.year, data.employees, data.requests, data.constraints))
+    setCalculation({
+      result: solvePlanning(weeks, data.employees, data.requests, data.constraints),
+      source: data,
+    })
   }
 
   const handleExportExcel = async () => {
@@ -76,7 +97,7 @@ export default function PlanBoard() {
 
   return (
     <section className="panel">
-      <h2>Planung {data.year}</h2>
+      <h2>Planung: {planningPeriodLabel(data.startYear, data.startMonth)}</h2>
       <div className="toolbar">
         <button onClick={handleCalculate} disabled={!canCalculate}>
           Plan berechnen
@@ -98,22 +119,6 @@ export default function PlanBoard() {
 
       {result && (
         <>
-          <div className="summary-cards">
-            <SummaryCard
-              label="Wie gewünscht"
-              value={result.assignments.filter((a) => a.status === 'as-requested').length}
-            />
-            <SummaryCard
-              label="Alternativ verschoben"
-              value={result.assignments.filter((a) => a.status === 'alternative').length}
-            />
-            <SummaryCard
-              label="Nicht erfüllbar"
-              value={result.assignments.filter((a) => a.status === 'unresolved').length}
-              warn
-            />
-          </div>
-
           {result.warnings.length > 0 && (
             <div className="warnings">
               <h3>Hinweise</h3>
@@ -127,10 +132,17 @@ export default function PlanBoard() {
 
           <div className="grid-scroll">
             <table className="plan-grid">
+              <colgroup>
+                <col className="employee-column" />
+                {weeks.map((week) => (
+                  <col key={week.index} className="week-column" />
+                ))}
+              </colgroup>
               <thead>
                 <tr>
-                  <th className="sticky-col" rowSpan={2}>
-                    Mitarbeiter
+                  <th className="sticky-col diagonal-header" rowSpan={2}>
+                    <span className="diagonal-header-kw">KW</span>
+                    <span className="diagonal-header-employee">Mitarbeiter</span>
                   </th>
                   {monthGroups.map((g, i) => (
                     <th key={i} colSpan={g.span} className="month-header">
@@ -139,9 +151,9 @@ export default function PlanBoard() {
                   ))}
                 </tr>
                 <tr>
-                  {weekNumbers.map((w) => (
-                    <th key={w} title={weekDateRangeLabel(data.year, w)}>
-                      {w}
+                  {weeks.map((week) => (
+                    <th key={week.index} title={planningWeekLabel(week)}>
+                      {week.isoWeek}
                     </th>
                   ))}
                 </tr>
@@ -161,14 +173,18 @@ export default function PlanBoard() {
                   return (
                     <tr key={emp.id}>
                       <td className="sticky-col">{emp.name}</td>
-                      {weekNumbers.map((w) => {
-                        const status = weekStatus.get(w)
+                      {weeks.map((week) => {
+                        const status = weekStatus.get(week.index)
                         return (
                           <td
-                            key={w}
+                            key={week.index}
                             className={status ? `plan-cell ${status}` : 'plan-cell'}
                             style={status ? { background: color, opacity: status === 'alternative' ? 0.55 : 1 } : undefined}
-                            title={status ? `KW ${w}: ${STATUS_LABEL[status]}` : undefined}
+                            title={
+                              status
+                                ? `${planningWeekLabel(week)}: ${STATUS_LABEL[status]}`
+                                : undefined
+                            }
                           />
                         )
                       })}
@@ -198,10 +214,9 @@ export default function PlanBoard() {
                     <td>{employeeById.get(a.employeeId)?.name ?? '(gelöscht)'}</td>
                     <td>{a.priority}</td>
                     <td>
-                      KW {a.originalStartWeek}
-                      {a.originalEndWeek !== a.originalStartWeek ? `–${a.originalEndWeek}` : ''}
+                      {formatAssignmentWeeks(weeks, a.originalStartWeek, a.originalEndWeek)}
                       <div className="hint">
-                        {weekRangeDateLabel(data.year, a.originalStartWeek, a.originalEndWeek)}
+                        {planningWeekRangeLabel(weeks, a.originalStartWeek, a.originalEndWeek)}
                       </div>
                     </td>
                     <td>
@@ -209,9 +224,10 @@ export default function PlanBoard() {
                         ? '–'
                         : (
                           <>
-                            KW {a.startWeek}
-                            {a.endWeek !== a.startWeek ? `–${a.endWeek}` : ''}
-                            <div className="hint">{weekRangeDateLabel(data.year, a.startWeek, a.endWeek)}</div>
+                            {formatAssignmentWeeks(weeks, a.startWeek, a.endWeek)}
+                            <div className="hint">
+                              {planningWeekRangeLabel(weeks, a.startWeek, a.endWeek)}
+                            </div>
                           </>
                         )}
                       {a.status === 'alternative' && (
@@ -236,11 +252,11 @@ export default function PlanBoard() {
   )
 }
 
-function SummaryCard({ label, value, warn }: { label: string; value: number; warn?: boolean }) {
-  return (
-    <div className={`summary-card${warn && value > 0 ? ' warn' : ''}`}>
-      <div className="summary-value">{value}</div>
-      <div className="summary-label">{label}</div>
-    </div>
-  )
+function formatAssignmentWeeks(weeks: PlanningResult['weeks'], start: number, end: number): string {
+  const first = weeks[start - 1]
+  const last = weeks[end - 1]
+  if (!first || !last) return '–'
+  const firstLabel = `KW ${first.isoWeek}/${first.isoYear}`
+  const lastLabel = `KW ${last.isoWeek}/${last.isoYear}`
+  return start === end ? firstLabel : `${firstLabel}–${lastLabel}`
 }

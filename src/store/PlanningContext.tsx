@@ -3,9 +3,10 @@ import type { ReactNode } from 'react'
 import { v4 as uuid } from 'uuid'
 import type { Constraints, Employee, PlanningData, VacationRequest } from '../types'
 import { defaultPlanningData, loadPlanningData, savePlanningData } from './persistence'
+import { planningWeeks } from '../utils/isoWeek'
 
 type Action =
-  | { type: 'SET_YEAR'; year: number }
+  | { type: 'SET_PERIOD'; startYear: number; startMonth: number }
   | { type: 'ADD_EMPLOYEE'; employee: Omit<Employee, 'id'> }
   | { type: 'UPDATE_EMPLOYEE'; employee: Employee }
   | { type: 'DELETE_EMPLOYEE'; id: string }
@@ -14,16 +15,33 @@ type Action =
   | { type: 'DELETE_REQUEST'; id: string }
   | { type: 'UPDATE_CONSTRAINTS'; constraints: Constraints }
   | { type: 'IMPORT_DATA'; data: PlanningData }
-  | { type: 'RESET_DATA'; year: number }
+  | { type: 'RESET_DATA'; startYear: number; startMonth: number }
 
 function reducer(state: PlanningData, action: Action): PlanningData {
   switch (action.type) {
-    case 'SET_YEAR':
+    case 'SET_PERIOD': {
+      const oldWeeks = planningWeeks(state.startYear, state.startMonth)
+      const newWeeks = planningWeeks(action.startYear, action.startMonth)
+      const newIndexByDate = new Map(newWeeks.map((week) => [week.start.getTime(), week.index]))
+      const requests = state.requests.flatMap((request) => {
+        if (state.startMonth === action.startMonth && state.startYear !== action.startYear) {
+          const startWeek = Math.min(request.startWeek, newWeeks.length)
+          const endWeek = Math.min(request.endWeek, newWeeks.length)
+          return [{ ...request, startWeek, endWeek: Math.max(startWeek, endWeek) }]
+        }
+        const start = oldWeeks[request.startWeek - 1]
+        const end = oldWeeks[request.endWeek - 1]
+        const startWeek = start && newIndexByDate.get(start.start.getTime())
+        const endWeek = end && newIndexByDate.get(end.start.getTime())
+        return startWeek && endWeek ? [{ ...request, startWeek, endWeek }] : []
+      })
       return {
         ...state,
-        year: action.year,
-        requests: state.requests.map((r) => ({ ...r, year: action.year })),
+        startYear: action.startYear,
+        startMonth: action.startMonth,
+        requests,
       }
+    }
     case 'ADD_EMPLOYEE':
       return { ...state, employees: [...state.employees, { ...action.employee, id: uuid() }] }
     case 'UPDATE_EMPLOYEE':
@@ -51,7 +69,7 @@ function reducer(state: PlanningData, action: Action): PlanningData {
     case 'IMPORT_DATA':
       return action.data
     case 'RESET_DATA':
-      return defaultPlanningData(action.year)
+      return { ...defaultPlanningData(action.startYear), startMonth: action.startMonth }
     default:
       return state
   }
@@ -59,7 +77,7 @@ function reducer(state: PlanningData, action: Action): PlanningData {
 
 interface PlanningContextValue {
   data: PlanningData
-  setYear: (year: number) => void
+  setPlanningPeriod: (startYear: number, startMonth: number) => void
   addEmployee: (employee: Omit<Employee, 'id'>) => void
   updateEmployee: (employee: Employee) => void
   deleteEmployee: (id: string) => void
@@ -83,7 +101,8 @@ export function PlanningProvider({ children }: { children: ReactNode }) {
 
   const value: PlanningContextValue = {
     data,
-    setYear: (year) => dispatch({ type: 'SET_YEAR', year }),
+    setPlanningPeriod: (startYear, startMonth) =>
+      dispatch({ type: 'SET_PERIOD', startYear, startMonth }),
     addEmployee: (employee) => dispatch({ type: 'ADD_EMPLOYEE', employee }),
     updateEmployee: (employee) => dispatch({ type: 'UPDATE_EMPLOYEE', employee }),
     deleteEmployee: (id) => dispatch({ type: 'DELETE_EMPLOYEE', id }),
@@ -92,7 +111,8 @@ export function PlanningProvider({ children }: { children: ReactNode }) {
     deleteRequest: (id) => dispatch({ type: 'DELETE_REQUEST', id }),
     updateConstraints: (constraints) => dispatch({ type: 'UPDATE_CONSTRAINTS', constraints }),
     importData: (importedData) => dispatch({ type: 'IMPORT_DATA', data: importedData }),
-    resetData: () => dispatch({ type: 'RESET_DATA', year: data.year }),
+    resetData: () =>
+      dispatch({ type: 'RESET_DATA', startYear: data.startYear, startMonth: data.startMonth }),
   }
 
   return <PlanningContext.Provider value={value}>{children}</PlanningContext.Provider>

@@ -189,36 +189,6 @@ button.danger:hover {
   margin-bottom: 1rem;
 }
 
-.summary-cards {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.summary-card {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  padding: 0.75rem 1.25rem;
-  text-align: center;
-  min-width: 140px;
-}
-
-.summary-card.warn {
-  background: var(--color-warn-bg);
-  border-color: var(--color-warn-border);
-}
-
-.summary-value {
-  font-size: 1.6rem;
-  font-weight: 700;
-}
-
-.summary-label {
-  font-size: 0.8rem;
-  color: var(--color-muted);
-}
-
 .warnings {
   background: var(--color-warn-bg);
   border: 1px solid var(--color-warn-border);
@@ -246,6 +216,16 @@ button.danger:hover {
 .plan-grid {
   border-collapse: collapse;
   font-size: 0.75rem;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.plan-grid .employee-column {
+  width: 80px;
+}
+
+.plan-grid .week-column {
+  width: 22px;
 }
 
 .plan-grid th,
@@ -275,11 +255,44 @@ button.danger:hover {
   left: 0;
   background: white;
   z-index: 1;
-  width: 140px;
-  min-width: 140px;
+  width: 80px;
+  min-width: 80px;
   text-align: left;
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem 0.35rem;
   font-weight: 500;
+}
+
+.plan-grid .diagonal-header {
+  position: sticky;
+  height: 56px;
+  padding: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      to top right,
+      transparent calc(50% - 0.5px),
+      var(--color-border) 50%,
+      transparent calc(50% + 0.5px)
+    ),
+    #f9fafb;
+}
+
+.diagonal-header-kw,
+.diagonal-header-employee {
+  position: absolute;
+  font-size: 0.65rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.diagonal-header-kw {
+  top: 0.45rem;
+  right: 0.4rem;
+}
+
+.diagonal-header-employee {
+  bottom: 0.45rem;
+  left: 0.3rem;
 }
 
 .plan-cell {

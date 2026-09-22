@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { usePlanning } from '../store/PlanningContext'
-import type { Priority, VacationRequest } from '../types'
-import { weekStartDate, weekEndDate, weeksInYear } from '../utils/isoWeek'
+import type { PlanningWeek, Priority, VacationRequest } from '../types'
+import { planningPeriodLabel, planningWeekLabel, planningWeeks } from '../utils/isoWeek'
 
 const PRIORITY_LABEL: Record<Priority, string> = {
   fixed: 'Fixiert',
@@ -10,41 +10,26 @@ const PRIORITY_LABEL: Record<Priority, string> = {
   normal: 'Normal',
 }
 
-/** Kurzes Datumsformat `TT.MM.` für Hinweistexte. */
-function formatDateShort(d: Date): string {
-  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`
-}
-
-/** Liste aller Kalenderwochen eines Jahres mit Anzeigetext (z. B. "KW 30 (20.07.–26.07.)"). */
-function useWeekOptions(year: number) {
-  return useMemo(() => {
-    const total = weeksInYear(year)
-    return Array.from({ length: total }, (_, i) => {
-      const week = i + 1
-      const start = formatDateShort(weekStartDate(year, week))
-      const end = formatDateShort(weekEndDate(year, week))
-      return { week, label: `KW ${week} (${start}–${end})` }
-    })
-  }, [year])
-}
-
 function WeekSelect({
-  year,
+  weeks,
   value,
   onChange,
   ariaLabel,
 }: {
-  year: number
+  weeks: PlanningWeek[]
   value: number
   onChange: (week: number) => void
   ariaLabel: string
 }) {
-  const options = useWeekOptions(year)
   return (
-    <select aria-label={ariaLabel} value={value} onChange={(e) => onChange(Number(e.target.value))}>
-      {options.map((o) => (
-        <option key={o.week} value={o.week}>
-          {o.label}
+    <select
+      aria-label={ariaLabel}
+      value={Math.min(value, weeks.length)}
+      onChange={(e) => onChange(Number(e.target.value))}
+    >
+      {weeks.map((week) => (
+        <option key={week.index} value={week.index}>
+          {planningWeekLabel(week)}
         </option>
       ))}
     </select>
@@ -57,6 +42,10 @@ export default function RequestManager() {
   const [startWeek, setStartWeek] = useState(1)
   const [endWeek, setEndWeek] = useState(1)
   const [priority, setPriority] = useState<Priority>('normal')
+  const weeks = useMemo(
+    () => planningWeeks(data.startYear, data.startMonth),
+    [data.startYear, data.startMonth],
+  )
 
   const employeeById = new Map(data.employees.map((e) => [e.id, e]))
 
@@ -74,9 +63,8 @@ export default function RequestManager() {
     if (!employeeId) return
     addRequest({
       employeeId,
-      year: data.year,
-      startWeek,
-      endWeek: Math.max(startWeek, endWeek),
+      startWeek: Math.min(startWeek, weeks.length),
+      endWeek: Math.min(Math.max(startWeek, endWeek), weeks.length),
       priority,
     })
     setStartWeek(1)
@@ -88,7 +76,7 @@ export default function RequestManager() {
 
   return (
     <section className="panel">
-      <h2>Urlaubswünsche {data.year}</h2>
+      <h2>Urlaubswünsche: {planningPeriodLabel(data.startYear, data.startMonth)}</h2>
       <form className="inline-form" onSubmit={handleAdd}>
         <label>
           Mitarbeiter
@@ -106,7 +94,7 @@ export default function RequestManager() {
         <label>
           Von Kalenderwoche
           <WeekSelect
-            year={data.year}
+            weeks={weeks}
             value={startWeek}
             onChange={handleStartWeekChange}
             ariaLabel="Von Kalenderwoche"
@@ -115,7 +103,7 @@ export default function RequestManager() {
         <label>
           Bis Kalenderwoche
           <WeekSelect
-            year={data.year}
+            weeks={weeks}
             value={endWeek}
             onChange={handleEndWeekChange}
             ariaLabel="Bis Kalenderwoche"
@@ -152,7 +140,7 @@ export default function RequestManager() {
               key={req.id}
               request={req}
               employeeName={employeeById.get(req.employeeId)?.name ?? '(gelöscht)'}
-              year={data.year}
+              weeks={weeks}
               onSave={updateRequest}
               onDelete={() => deleteRequest(req.id)}
             />
@@ -173,13 +161,13 @@ export default function RequestManager() {
 function RequestRow({
   request,
   employeeName,
-  year,
+  weeks,
   onSave,
   onDelete,
 }: {
   request: VacationRequest
   employeeName: string
-  year: number
+  weeks: PlanningWeek[]
   onSave: (r: VacationRequest) => void
   onDelete: () => void
 }) {
@@ -210,14 +198,14 @@ function RequestRow({
       <td>
         <div className="week-range-select">
           <WeekSelect
-            year={year}
+            weeks={weeks}
             value={startWeek}
             onChange={handleStartWeekChange}
             ariaLabel="Von Kalenderwoche"
           />
           <span> – </span>
           <WeekSelect
-            year={year}
+            weeks={weeks}
             value={endWeek}
             onChange={handleEndWeekChange}
             ariaLabel="Bis Kalenderwoche"
@@ -246,4 +234,3 @@ function RequestRow({
     </tr>
   )
 }
-

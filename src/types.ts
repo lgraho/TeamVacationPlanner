@@ -4,17 +4,16 @@ export type Priority = 'fixed' | 'high' | 'normal'
 export interface Employee {
   id: string
   name: string
-  /** Individuelles Kontingent an Urlaubswochen für das Planungsjahr. */
+  /** Individuelles Kontingent an Urlaubswochen für den Planungszeitraum. */
   maxVacationWeeks: number
 }
 
 export interface VacationRequest {
   id: string
   employeeId: string
-  year: number
-  /** Erste gewünschte Kalenderwoche (inklusive). */
+  /** Erste gewünschte Planwoche (inklusive). */
   startWeek: number
-  /** Letzte gewünschte Kalenderwoche (inklusive). */
+  /** Letzte gewünschte Planwoche (inklusive). */
   endWeek: number
   priority: Priority
   note?: string
@@ -51,19 +50,29 @@ export interface PlanningWarning {
 }
 
 export interface PlanningResult {
-  year: number
-  weeksInYear: number
+  weeks: PlanningWeek[]
   assignments: AssignedVacation[]
   warnings: PlanningWarning[]
   score: number
 }
 
 export interface PlanningData {
-  version: 1
-  year: number
+  version: 2
+  startYear: number
+  /** Startmonat des zwölfmonatigen Planungszeitraums (1–12). */
+  startMonth: number
   employees: Employee[]
   requests: VacationRequest[]
   constraints: Constraints
+}
+
+export interface PlanningWeek {
+  /** Fortlaufende Position im Planungszeitraum, beginnend bei 1. */
+  index: number
+  isoYear: number
+  isoWeek: number
+  start: Date
+  end: Date
 }
 
 export const DEFAULT_CONSTRAINTS: Constraints = {

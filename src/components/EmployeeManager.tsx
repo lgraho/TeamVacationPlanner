@@ -28,7 +28,7 @@ export default function EmployeeManager() {
           required
         />
         <label>
-          Max. Urlaubswochen/Jahr
+          Max. Urlaubswochen/Planungszeitraum
           <input
             type="number"
             min={0}
@@ -44,7 +44,7 @@ export default function EmployeeManager() {
         <thead>
           <tr>
             <th>Name</th>
-            <th>Max. Urlaubswochen/Jahr</th>
+            <th>Max. Urlaubswochen/Planungszeitraum</th>
             <th></th>
           </tr>
         </thead>
