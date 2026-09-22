@@ -22,7 +22,7 @@ function AppShell() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>🏥 Urlaubsplaner</h1>
+        <h1>🏥 Team-Urlaubsplaner</h1>
         <ImportExportBar />
       </header>
       <nav className="tabs">

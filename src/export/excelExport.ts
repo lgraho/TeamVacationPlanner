@@ -24,7 +24,7 @@ function triggerDownload(blob: Blob, filename: string): void {
 /** Exportiert den berechneten Urlaubsplan als Excel-Arbeitsmappe (Wochenraster + Details + Hinweise). */
 export async function exportPlanToExcel(data: PlanningData, result: PlanningResult): Promise<void> {
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = 'Urlaubsplaner'
+  workbook.creator = 'Team-Urlaubsplaner'
   workbook.created = new Date()
 
   const employeeById = new Map<string, Employee>(data.employees.map((e) => [e.id, e]))

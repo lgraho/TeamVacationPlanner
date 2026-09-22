@@ -269,6 +269,13 @@ button.danger:hover {
   padding: 0.25rem 0.15rem;
 }
 
+.plan-grid .month-header {
+  border-bottom: 1px solid var(--color-border);
+  background: #f1f5f9;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+}
+
 .plan-grid .sticky-col {
   position: sticky;
   left: 0;

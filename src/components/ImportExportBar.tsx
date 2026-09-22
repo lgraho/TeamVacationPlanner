@@ -31,8 +31,8 @@ export default function ImportExportBar() {
 
   return (
     <div className="toolbar">
-      <button onClick={() => exportPlanningDataToFile(data)}>Als JSON exportieren</button>
-      <button onClick={handleImportClick}>JSON importieren</button>
+      <button onClick={() => exportPlanningDataToFile(data)}>Speichern</button>
+      <button onClick={handleImportClick}>Importieren</button>
       <input
         ref={fileInputRef}
         type="file"

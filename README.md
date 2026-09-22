@@ -1,4 +1,4 @@
-# 🏥 Urlaubsplaner
+# 🏥 Team-Urlaubsplaner
 
 Ein clientseitiges Tool für Stationsleitungen, um Urlaubswünsche des Personals unter
 Berücksichtigung betrieblicher Einschränkungen zu planen. Die gesamte Berechnung läuft

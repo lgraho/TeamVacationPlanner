@@ -2,9 +2,24 @@ import { useMemo, useState } from 'react'
 import { usePlanning } from '../store/PlanningContext'
 import { solvePlanning } from '../solver/solver'
 import type { PlanningResult } from '../types'
-import { weeksInYear, weekDateRangeLabel } from '../utils/isoWeek'
+import { weeksInYear, weekDateRangeLabel, weekStartDate, weekRangeDateLabel } from '../utils/isoWeek'
 import { employeeColor } from '../utils/colors'
 import { STATUS_LABEL } from '../utils/statusLabels'
+
+const MONTH_NAMES = [
+  'Januar',
+  'Februar',
+  'März',
+  'April',
+  'Mai',
+  'Juni',
+  'Juli',
+  'August',
+  'September',
+  'Oktober',
+  'November',
+  'Dezember',
+]
 
 export default function PlanBoard() {
   const { data } = usePlanning()
@@ -13,6 +28,21 @@ export default function PlanBoard() {
   const [isExportingPdf, setIsExportingPdf] = useState(false)
   const weeksTotal = weeksInYear(data.year)
   const weekNumbers = useMemo(() => Array.from({ length: weeksTotal }, (_, i) => i + 1), [weeksTotal])
+
+  // Gruppiert die Wochen nach dem Monat ihres Wochenbeginns (Montag) für die Monatsüberschrift im Raster.
+  const monthGroups = useMemo(() => {
+    const groups: { label: string; span: number }[] = []
+    for (const w of weekNumbers) {
+      const label = MONTH_NAMES[weekStartDate(data.year, w).getMonth()]
+      const last = groups[groups.length - 1]
+      if (last && last.label === label) {
+        last.span += 1
+      } else {
+        groups.push({ label, span: 1 })
+      }
+    }
+    return groups
+  }, [weekNumbers, data.year])
 
   const canCalculate = data.employees.length > 0 && data.requests.length > 0
 
@@ -99,7 +129,16 @@ export default function PlanBoard() {
             <table className="plan-grid">
               <thead>
                 <tr>
-                  <th className="sticky-col">Mitarbeiter</th>
+                  <th className="sticky-col" rowSpan={2}>
+                    Mitarbeiter
+                  </th>
+                  {monthGroups.map((g, i) => (
+                    <th key={i} colSpan={g.span} className="month-header">
+                      {g.label}
+                    </th>
+                  ))}
+                </tr>
+                <tr>
                   {weekNumbers.map((w) => (
                     <th key={w} title={weekDateRangeLabel(data.year, w)}>
                       {w}
@@ -161,11 +200,20 @@ export default function PlanBoard() {
                     <td>
                       KW {a.originalStartWeek}
                       {a.originalEndWeek !== a.originalStartWeek ? `–${a.originalEndWeek}` : ''}
+                      <div className="hint">
+                        {weekRangeDateLabel(data.year, a.originalStartWeek, a.originalEndWeek)}
+                      </div>
                     </td>
                     <td>
                       {a.status === 'unresolved'
                         ? '–'
-                        : `KW ${a.startWeek}${a.endWeek !== a.startWeek ? `–${a.endWeek}` : ''}`}
+                        : (
+                          <>
+                            KW {a.startWeek}
+                            {a.endWeek !== a.startWeek ? `–${a.endWeek}` : ''}
+                            <div className="hint">{weekRangeDateLabel(data.year, a.startWeek, a.endWeek)}</div>
+                          </>
+                        )}
                       {a.status === 'alternative' && (
                         <span className="hint">
                           {' '}
