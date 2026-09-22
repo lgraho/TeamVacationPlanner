@@ -179,7 +179,15 @@ export default function PlanBoard() {
                           <td
                             key={week.index}
                             className={status ? `plan-cell ${status}` : 'plan-cell'}
-                            style={status ? { background: color, opacity: status === 'alternative' ? 0.55 : 1 } : undefined}
+                            style={
+                              status === 'alternative'
+                                ? {
+                                    background: `repeating-linear-gradient(135deg, ${color} 0 3px, transparent 3px 6px)`,
+                                  }
+                                : status
+                                  ? { background: color }
+                                  : undefined
+                            }
                             title={
                               status
                                 ? `${planningWeekLabel(week)}: ${STATUS_LABEL[status]}`
